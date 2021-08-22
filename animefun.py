@@ -1,7 +1,8 @@
-import requests, json, os, re, time
+import requests, json, os, re, time, sys
 import functions
 
 header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
+cookie = {}
 
 #open cookie
 '''
@@ -15,10 +16,12 @@ with open('cookie.txt') as cookie_file:
         cookie.setdefault(k, v)
 '''
 
-cookie = {}
         
-print('sn:', end='')
-sn = input()
+if len(sys.argv) > 1:
+    sn = sys.argv[1]
+    print('sn: %s' % sn)
+else:
+    sn = input('sn: ')
 
 #get device id
 deviceid_res = requests.get('https://ani.gamer.com.tw/ajax/getdeviceid.php', cookies=cookie, headers=header)
@@ -61,13 +64,17 @@ for i in range(len(master_m3u)):
     if line.startswith('#EXT-X-STREAM-INF'):
         resolutions.append({'info': line[18:], 'url': master_m3u[i+1]})
 
-#select a resolution
-for j in range(len(resolutions)):
-    print('#%s: %s' % (j, resolutions[j]['info']))
+#select a resolution if no argv
+if len(sys.argv) > 2:
+    select_resolution = int(sys.argv[2])
+    print('selected resolution: %s' % resolutions[select_resolution]['info'])
+else:
+    for j in range(len(resolutions)):
+        print('#%s: %s' % (j, resolutions[j]['info']))
 
-print('select a resolution:', end='')
-select_resolution = int(input())
-#get resolution descript
+    select_resolution = int(input('select a resolution: '))
+
+#get resolution description
 resolution = re.match('^.*RESOLUTION=(\d+x\d+).*$', resolutions[select_resolution]['info']).group(1)
 
 #switch folder
