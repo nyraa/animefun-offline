@@ -1,8 +1,10 @@
-import requests, json, os, re
+import requests, json, os, re, time
+import functions
 
-header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
+header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
 
 #open cookie
+'''
 with open('cookie.txt') as cookie_file:
     cookie_text = cookie_file.read().split('\n')
     cookie = {}
@@ -11,21 +13,39 @@ with open('cookie.txt') as cookie_file:
             continue
         k, v = kv.split('=', 1)
         cookie.setdefault(k, v)
+'''
 
-#cookie = {}
+cookie = {}
+        
 print('sn:', end='')
 sn = input()
 
 #get device id
 deviceid_res = requests.get('https://ani.gamer.com.tw/ajax/getdeviceid.php', cookies=cookie, headers=header)
 deviceid_res.raise_for_status()
+cookie.update(deviceid_res.cookies.get_dict())
 deviceid = json.loads(deviceid_res.text)['deviceid']
+
+#start ad
+ad_data = functions.get_major_ad()
+cookie.update(ad_data['cookie'])
+print('start ad')
+requests.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s' % (ad_data['adsid'], sn), cookies=cookie, headers=header)
+time.sleep(25)
+
+#end ad
+requests.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s&ad=end' % (ad_data['adsid'], sn), cookies=cookie, headers=header)
+print('end ad')
 
 #get m3u8 url (m3u8.php)
 m3u_url_res = requests.get('https://ani.gamer.com.tw/ajax/m3u8.php?sn=%s&device=%s' % (sn, deviceid), cookies=cookie, headers=header)
 m3u_url_res.raise_for_status()
-print(m3u_url_res.text)
-m3u_url = json.loads(m3u_url_res.text)['src']
+try:
+    m3u_url = json.loads(m3u_url_res.text)['src']
+except Exception as ex:
+    print(m3u_url_res.text)
+    print('failed to load m3u')
+    exit()
 
 #get master m3u
 base = os.path.dirname(m3u_url) + '/'
