@@ -4,9 +4,9 @@ make online animefun content work offline
 
 ## requirement
 ### python
-requests
-### other
-ffmpeg that be added in path
+* requests
+### others
+* ffmpeg that be added in path
 
 ## usage
 ### interactive
