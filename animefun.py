@@ -9,6 +9,18 @@ import multiple_thread_downloading
 header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
 cookie = {}
 
+# read cookie from file
+# use it if you are VIP or some situation you need
+'''
+with open('cookie.txt') as cookie_file:
+    cookie_text = cookie_file.read().split('\n')
+    for kv in cookie_text:
+        if kv == '':
+            continue
+        k, v = kv.split('=', 1)
+        cookie.setdefault(k, v)
+'''
+
 # read sn from argv or stdin
 if len(sys.argv) > 1:
     sn = sys.argv[1]
