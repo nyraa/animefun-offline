@@ -11,6 +11,7 @@ cookie = {}
 
 # read cookie from file
 # use it if you are VIP or some situation you need
+# remove the comment mark '''
 '''
 with open('cookie.txt') as cookie_file:
     cookie_text = cookie_file.read().split('\n')
