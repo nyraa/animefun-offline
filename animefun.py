@@ -7,7 +7,8 @@ import multiple_thread_downloading
 
 # header const
 header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
-cookie = {}
+session = requests.session()
+session.headers.update(header)
 
 # read cookie from file
 # use it if you are VIP or some situation you need
@@ -30,27 +31,26 @@ else:
     sn = input('sn: ')
 
 # get device id
-deviceid_res = requests.get('https://ani.gamer.com.tw/ajax/getdeviceid.php', cookies=cookie, headers=header)
+deviceid_res = session.get('https://ani.gamer.com.tw/ajax/getdeviceid.php')
 deviceid_res.raise_for_status()
-cookie.update(deviceid_res.cookies.get_dict())
 deviceid = json.loads(deviceid_res.text)['deviceid']
 
 # start ad
 ad_data = functions.get_major_ad()
-cookie.update(ad_data['cookie'])
+session.cookies.update(ad_data['cookie'])
 print('start ad')
-requests.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s' % (ad_data['adsid'], sn), cookies=cookie, headers=header)
+session.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s' % (ad_data['adsid'], sn))
 ad_countdown = 25
 for countdown in range(ad_countdown):
     print(f'ad {ad_countdown - countdown}s remaining', end='\r')
     time.sleep(1)
 
 #end ad
-requests.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s&ad=end' % (ad_data['adsid'], sn), cookies=cookie, headers=header)
+session.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s&ad=end' % (ad_data['adsid'], sn))
 print('end ad')
 
 # get m3u8 url form m3u8.php
-m3u8_php_res = requests.get('https://ani.gamer.com.tw/ajax/m3u8.php?sn=%s&device=%s' % (sn, deviceid), cookies=cookie, headers=header)
+m3u8_php_res = session.get('https://ani.gamer.com.tw/ajax/m3u8.php?sn=%s&device=%s' % (sn, deviceid))
 m3u8_php_res.raise_for_status()
 try:
     playlist_basic_url = json.loads(m3u8_php_res.text)['src']
