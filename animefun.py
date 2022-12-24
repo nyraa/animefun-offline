@@ -11,17 +11,15 @@ session = requests.session()
 session.headers.update(header)
 
 # read cookie from file
-# use it if you are VIP or some situation you need
-# remove the comment mark '''
-'''
+# paste your BAHARUNE cookie in cookie.txt if you want to download high resolution video
+# BAHARUNE=YOUR_BAHARUNE_COOKIE
 with open('cookie.txt') as cookie_file:
     cookie_text = cookie_file.read().split('\n')
     for kv in cookie_text:
         if kv == '':
             continue
         k, v = kv.split('=', 1)
-        cookie.setdefault(k, v)
-'''
+        session.cookies.setdefault(k, v)
 
 # read sn from argv or stdin
 if len(sys.argv) > 1:
