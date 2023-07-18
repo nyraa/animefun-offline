@@ -6,6 +6,7 @@ class acgDetail:
     def __init__(self, s: str=None, sn: str=None, parse_metadata: bool=False):
         self.sns = {}
         self.name = None
+        self._has_metadata = False
         if s is None and sn is None:
             raise Exception('s and sn cannot be both unspecified')
         if s is not None:
@@ -14,8 +15,9 @@ class acgDetail:
         else:
             self.sn = sn
         self._parse_eps()
-        if self.name is None and parse_metadata:
+        if not self._has_metadata and parse_metadata:
             self._parse_sn()
+        self.ep = next((key for key, value in self.sns.items() if value == self.sn), None)
 
     def _parse_sn(self):
         res = requests.get(f"https://acg.gamer.com.tw/acgDetail.php?s={self.s}", headers=self.HEADERS)
@@ -25,6 +27,7 @@ class acgDetail:
         first_sn = bs.select('.seasonACG a')[0].attrs['href'].split('=')[1]
 
         self.name = bs.select('.ACG-mster_box1 h1')[0].text
+        self._has_metadata = True
         return first_sn
     
     def _parse_eps(self):
@@ -39,5 +42,5 @@ class acgDetail:
 
 
 if __name__ == '__main__':
-    data = acgDetail(s='109289')
-    print(data.sns)
+    data = acgDetail(sn='793')
+    print(data.ep)
