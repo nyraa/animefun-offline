@@ -9,17 +9,19 @@ import multiple_thread_downloading
 header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
 session = requests.session()
 session.headers.update(header)
+deviceid = None
 
 # read cookie from file
 # paste your BAHARUNE cookie in cookie.txt if you want to download high resolution video
 # BAHARUNE=YOUR_BAHARUNE_COOKIE
-with open('cookie.txt') as cookie_file:
-    cookie_text = cookie_file.read().split('\n')
-    for kv in cookie_text:
-        if kv == '':
-            continue
-        k, v = kv.split('=', 1)
-        session.cookies.setdefault(k, v)
+try:
+    # cookies in k=v format
+    with open('cookie.txt', 'r') as f:
+        cookies = f.read().strip()
+        cookies = {i.split('=')[0]: i.split('=')[1] for i in cookies.split('\n')}
+        session.cookies.update(cookies)
+except:
+    print('cookies.txt not found')
 
 # read sn from argv or stdin
 if len(sys.argv) > 1:
@@ -28,95 +30,116 @@ if len(sys.argv) > 1:
 else:
     sn = input('sn: ')
 
-# get device id
-deviceid_res = session.get('https://ani.gamer.com.tw/ajax/getdeviceid.php')
-deviceid_res.raise_for_status()
-deviceid = json.loads(deviceid_res.text)['deviceid']
+def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', ep_dir_name: str=sn):
+    if not method in ['mtd', 'ffmpeg', 'aes128']:
+        raise Exception('method must be one of mtd, ffmpeg, aes128')
+    pass
+    # get device id
+    global deviceid
+    deviceid_res = session.get(f"https://ani.gamer.com.tw/ajax/getdeviceid.php{'?id=' + deviceid if deviceid is not None else ''}")
+    deviceid_res.raise_for_status()
+    deviceid = deviceid_res.json()['deviceid']
 
-# start ad
-ad_data = functions.get_major_ad()
-session.cookies.update(ad_data['cookie'])
-print('start ad')
-session.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s' % (ad_data['adsid'], sn))
-ad_countdown = 25
-for countdown in range(ad_countdown):
-    print(f'ad {ad_countdown - countdown}s remaining', end='\r')
-    time.sleep(1)
+    # get token
+    res = session.get(f"https://ani.gamer.com.tw/ajax/token.php?sn={sn}&device={deviceid}")
+    res.raise_for_status()
+    token = res.json()
 
-#end ad
-session.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s&ad=end' % (ad_data['adsid'], sn))
-print('end ad')
+    if token['time'] == 0:
+        # start ad
+        ad_data = functions.get_major_ad()
+        session.cookies.update(ad_data['cookie'])
+        print('start ad')
+        # session.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s' % (ad_data['adsid'], sn))
+        session.get(f"https://ani.gamer.com.tw/ajax/videoCastcishu.php?s={ad_data['adsid']}&sn={sn}")
+        ad_countdown = 25
+        for countdown in range(ad_countdown):
+            print(f'ad {ad_countdown - countdown}s remaining', end='\r')
+            time.sleep(1)
 
-# get m3u8 url form m3u8.php
-m3u8_php_res = session.get('https://ani.gamer.com.tw/ajax/m3u8.php?sn=%s&device=%s' % (sn, deviceid))
-m3u8_php_res.raise_for_status()
-try:
-    playlist_basic_url = json.loads(m3u8_php_res.text)['src']
-except Exception as ex:
-    print(m3u8_php_res.text)
-    print('failed to load m3u')
-    exit()
+        #end ad
+        # session.get('https://ani.gamer.com.tw/ajax/videoCastcishu.php?s=%s&sn=%s&ad=end' % (ad_data['adsid'], sn))
+        session.get(f"https://ani.gamer.com.tw/ajax/videoCastcishu.php?s={ad_data['adsid']}&sn={sn}&ad=end")
+        print('end ad')
 
-# get playlist_basic.m38u
-meta_base = os.path.dirname(playlist_basic_url) + '/'
-playlist_basic_res = requests.get(playlist_basic_url, headers=header)
-playlist_basic_res.raise_for_status()
+    # get m3u8 url form m3u8.php
+    # m3u8_php_res = session.get('https://ani.gamer.com.tw/ajax/m3u8.php?sn=%s&device=%s' % (sn, deviceid))
+    m3u8_php_res = session.get(f"https://ani.gamer.com.tw/ajax/m3u8.php?sn={sn}&device={deviceid}")
+    m3u8_php_res.raise_for_status()
+    try:
+        playlist_basic_url = m3u8_php_res.json()['src']
+    except Exception as ex:
+        print(m3u8_php_res.text)
+        print('failed to load m3u')
+        exit()
 
-playlist_basic = playlist_basic_res.text.split('\n')
+    # get playlist_basic.m38u
+    meta_base = os.path.dirname(playlist_basic_url) + '/'
+    playlist_basic_res = requests.get(playlist_basic_url, headers=header)
+    playlist_basic_res.raise_for_status()
 
-# list all resolutions' metadata in list
-resolutions_metadata = []
-for i in range(len(playlist_basic)):
-    line = playlist_basic[i]
-    if line.startswith('#EXT-X-STREAM-INF'):
-        resolutions_metadata.append({'info': line[18:], 'url': playlist_basic[i+1]})
+    playlist_basic = playlist_basic_res.text.split('\n')
 
-# select a resolution from argv or stdin
-if len(sys.argv) > 2:
-    selected_resolution = int(sys.argv[2])
-    print('selected resolution: %s' % resolutions_metadata[selected_resolution]['info'])
-else:
-    for j in range(len(resolutions_metadata)):
-        print('#%s: %s' % (j, resolutions_metadata[j]['info']))
-    # read selection from console
-    selected_resolution = int(input('select a resolution: '))
+    # list all resolutions' metadata in list
+    resolutions_metadata = []
+    for i in range(len(playlist_basic)):
+        line = playlist_basic[i]
+        if line.startswith('#EXT-X-STREAM-INF'):
+            resolutions_metadata.append({'info': line[18:], 'url': playlist_basic[i+1]})
 
-# get resolution number for folder name
-resolution_number = resolutions_metadata[selected_resolution]['info'].rsplit('=', 1)[1]
+    # select a resolution from argv or stdin
+    if resolution is not None and resolution < len(resolutions_metadata):
+        print('selected resolution: %s' % resolutions_metadata[resolution]['info'])
+    else:
+        for j in range(len(resolutions_metadata)):
+            print(f"#{j}: {resolutions_metadata[j]['info']}")
+        # read selection from console
+        resolution = int(input('select a resolution: '))
 
-# change working path
-folder_name = f'{sn}_{resolution_number}'
-os.makedirs(os.path.join('Download', folder_name), exist_ok=True)
-os.chdir(os.path.join('Download', folder_name))
+    # get resolution number for folder name(format ex: 1080x1920)
+    resolution_number = resolutions_metadata[resolution]['info'].rsplit('=', 1)[1]
 
-# get chunklist m3u8
-chunklist_res = requests.get(meta_base + resolutions_metadata[selected_resolution]['url'], headers=header)
+    # prepare work directory
+    ep_basedir = os.path.join(download_dir_name, ep_dir_name)
+    os.makedirs(ep_basedir, exist_ok=True)
 
-# save chunklist to disk
-chunklist_filename = folder_name + '.m3u8'
-with open(chunklist_filename, 'wb') as chunklist_file:
-    for chunk in chunklist_res:
-        chunklist_file.write(chunk)
+    # change working path
+    folder_name = f'{sn}_{resolution_number}'
+    os.makedirs(os.path.join('Download', folder_name), exist_ok=True)
+    os.chdir(os.path.join('Download', folder_name))
 
-# base for the chunks
-chunks_base = meta_base + resolutions_metadata[selected_resolution]['url'].rsplit('/', 1)[0] + '/'
+    # get chunklist m3u8
+    chunklist_res = requests.get(meta_base + resolutions_metadata[resolution]['url'], headers=header)
 
-# parse chunklist.m3u8
-chunklist = chunklist_res.text.split('\n')
-mtd_worker = multiple_thread_downloading.mtd(header, chunks_base, chunklist_res.text.count('.ts'))
+    # save chunklist to disk
+    chunklist_filename = folder_name + '.m3u8'
+    with open(chunklist_filename, 'wb') as chunklist_file:
+        for chunk in chunklist_res:
+            chunklist_file.write(chunk)
 
-for k in range(len(chunklist)):
-    line = chunklist[k]
-    if line.startswith('#EXTINF'):
-        ts_name = chunklist[k+1]
-        # push
-        mtd_worker.push(ts_name)
-    elif line.startswith('#EXT-X-KEY'):
-        key_name = re.match('.*URI="(.*)".*$', line).group(1)
-        # push
-        mtd_worker.push(key_name)
-# wait for all download thread finished
-mtd_worker.join()
+    # base for the chunks
+    chunks_base = meta_base + resolutions_metadata[resolution]['url'].rsplit('/', 1)[0] + '/'
 
-# call ffmpeg to combine all ts
-os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
+    # parse chunklist.m3u8
+    chunklist = chunklist_res.text.split('\n')
+    mtd_worker = multiple_thread_downloading.mtd(header, chunks_base, chunklist_res.text.count('.ts'))
+
+    for k in range(len(chunklist)):
+        line = chunklist[k]
+        if line.startswith('#EXTINF'):
+            ts_name = chunklist[k+1]
+            # push
+            mtd_worker.push(ts_name)
+        elif line.startswith('#EXT-X-KEY'):
+            key_name = re.match('.*URI="(.*)".*$', line).group(1)
+            # push
+            mtd_worker.push(key_name)
+    # wait for all download thread finished
+    mtd_worker.join()
+
+    # call ffmpeg to combine all ts
+    os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
+
+
+if __name__ == '__main__':
+    download_sn(sn, resolution=None)
