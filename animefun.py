@@ -1,6 +1,7 @@
 import requests
 import os, sys, time
-import json, re
+import re
+import shutil
 
 import functions
 import multiple_thread_downloading
@@ -139,7 +140,9 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
         # call ffmpeg to combine all ts
         # os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
         os.system(f'ffmpeg -allowed_extensions ALL -i {os.path.join(tmp_dir, chunklist_filename)} -c copy {os.path.join(ep_basedir, filename_base)}.mp4')
-    
+
+        # remove tmp
+        shutil.rmtree(tmp_dir)
     elif method == 'ffmpeg':
         # linux only
         pass
