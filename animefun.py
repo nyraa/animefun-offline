@@ -4,6 +4,7 @@ import json, re
 
 import functions
 import multiple_thread_downloading
+from acgDetail import acgDetail
 
 # header const
 header = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70', 'referer': 'https://ani.gamer.com.tw/animeVideo.php', 'origin': 'https://ani.gamer.com.tw'}
@@ -30,7 +31,7 @@ if len(sys.argv) > 1:
 else:
     sn = input('sn: ')
 
-def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', ep_dir_name: str=sn):
+def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', ch_dir_name: str='.', ep_dir_name: str=sn, keep_tmp: bool=False):
     if not method in ['mtd', 'ffmpeg', 'aes128']:
         raise Exception('method must be one of mtd, ffmpeg, aes128')
     pass
@@ -82,8 +83,7 @@ def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_nam
 
     # list all resolutions' metadata in list
     resolutions_metadata = []
-    for i in range(len(playlist_basic)):
-        line = playlist_basic[i]
+    for i, line in enumerate(playlist_basic):
         if line.startswith('#EXT-X-STREAM-INF'):
             resolutions_metadata.append({'info': line[18:], 'url': playlist_basic[i+1]})
 
@@ -100,46 +100,50 @@ def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_nam
     resolution_number = resolutions_metadata[resolution]['info'].rsplit('=', 1)[1]
 
     # prepare work directory
-    ep_basedir = os.path.join(download_dir_name, ep_dir_name)
+    ep_basedir = os.path.join(download_dir_name, ch_dir_name, ep_dir_name)
     os.makedirs(ep_basedir, exist_ok=True)
 
-    # change working path
-    folder_name = f'{sn}_{resolution_number}'
-    os.makedirs(os.path.join('Download', folder_name), exist_ok=True)
-    os.chdir(os.path.join('Download', folder_name))
+    filename_base = f'{sn}_{resolution_number}'
 
-    # get chunklist m3u8
-    chunklist_res = requests.get(meta_base + resolutions_metadata[resolution]['url'], headers=header)
+    if method == 'mtd':
+        tmp_dir = os.path.join(ep_basedir, 'tmp')
+        os.makedirs(tmp_dir, exist_ok=True)
 
-    # save chunklist to disk
-    chunklist_filename = folder_name + '.m3u8'
-    with open(chunklist_filename, 'wb') as chunklist_file:
-        for chunk in chunklist_res:
-            chunklist_file.write(chunk)
+        # get chunklist m3u8
+        chunklist_res = requests.get(meta_base + resolutions_metadata[resolution]['url'], headers=header)
 
-    # base for the chunks
-    chunks_base = meta_base + resolutions_metadata[resolution]['url'].rsplit('/', 1)[0] + '/'
+        # save chunklist to disk
+        chunklist_filename = filename_base + '.m3u8'
+        with open(os.path.join(tmp_dir, chunklist_filename), 'wb') as chunklist_file:
+            for chunk in chunklist_res:
+                chunklist_file.write(chunk)
 
-    # parse chunklist.m3u8
-    chunklist = chunklist_res.text.split('\n')
-    mtd_worker = multiple_thread_downloading.mtd(header, chunks_base, chunklist_res.text.count('.ts'))
+        # base for the chunks
+        # chunks_base = meta_base + resolutions_metadata[resolution]['url'].rsplit('/', 1)[0] + '/'
+        chunks_base = f"{meta_base}{os.path.dirname(resolutions_metadata[resolution]['url'])}/"
 
-    for k in range(len(chunklist)):
-        line = chunklist[k]
-        if line.startswith('#EXTINF'):
-            ts_name = chunklist[k+1]
-            # push
-            mtd_worker.push(ts_name)
-        elif line.startswith('#EXT-X-KEY'):
-            key_name = re.match('.*URI="(.*)".*$', line).group(1)
-            # push
-            mtd_worker.push(key_name)
-    # wait for all download thread finished
-    mtd_worker.join()
+        # parse chunklist.m3u8
+        chunklist = chunklist_res.text.split('\n')
+        mtd_worker = multiple_thread_downloading.mtd(header, chunks_base, chunklist_res.text.count('.ts'), tmp_dir)
 
-    # call ffmpeg to combine all ts
-    os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
+        for k in range(len(chunklist)):
+            line = chunklist[k]
+            if line.startswith('#EXTINF'):
+                ts_name = chunklist[k+1]
+                # push
+                mtd_worker.push(ts_name)
+            elif line.startswith('#EXT-X-KEY'):
+                key_name = re.match('.*URI="(.*)".*$', line).group(1)
+                # push
+                mtd_worker.push(key_name)
+        # wait for all download thread finished
+        mtd_worker.join()
+
+        # call ffmpeg to combine all ts
+        # os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
+        os.system(f'ffmpeg -allowed_extensions ALL -i {os.path.join(tmp_dir, chunklist_filename)} -c copy {os.path.join(ep_basedir, filename_base)}.mp4')
 
 
 if __name__ == '__main__':
-    download_sn(sn, resolution=None)
+    metadata = acgDetail(sn=sn, parse_metadata=True)
+    download_sn(sn, resolution=None, download_dir_name=metadata.name)

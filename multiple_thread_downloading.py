@@ -1,15 +1,17 @@
 import queue
 import requests
 import threading
+import os
 
 class mtd:
     max_thread = 10
-    def __init__(self, header, base, length):
+    def __init__(self, header, base, length, store_base):
         self._download_queue = queue.Queue()
         self._worker_running = False
         self._header = header
         self._base = base
         self._length = length
+        self._store_base = store_base
         self._threading = 0
         self._finished = 0
 
@@ -29,7 +31,7 @@ class mtd:
         except Exception as ex:
             print(f'Error: {name}: {ex}')
             return
-        with open(name, 'wb') as file:
+        with open(os.path.join(self._store_base, name), 'wb') as file:
             file.write(res.content)
         self._threading -= 1
         self._finished += 1
