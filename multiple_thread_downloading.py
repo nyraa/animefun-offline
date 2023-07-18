@@ -13,6 +13,7 @@ class mtd:
         self._store_base = store_base
         self._threading = 0
         self._pop = 0
+        self._error = False
         self.max_thread = max_thread
         self.max_retry = 10
 
@@ -38,6 +39,7 @@ class mtd:
                 continue
         if retry == self.max_retry - 1:
             print(f'Failed to download {name}')
+            self._error = True
             return
         with open(os.path.join(self._store_base, name), 'wb') as file:
             file.write(res.content)
@@ -52,4 +54,5 @@ class mtd:
 
     def join(self):
         while self._threading > 0 or self._download_queue.qsize() > 0:
-            pass
+            if self._error:
+                raise Exception('Error occurred while downloading')
