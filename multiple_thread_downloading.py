@@ -12,20 +12,22 @@ class mtd:
         self._length = length
         self._store_base = store_base
         self._threading = 0
+        self._pop = 0
         self._finished = 0
         self.max_thread = max_thread
 
     def _worker(self):
         while self._download_queue.qsize() > 0:
             if self._threading < self.max_thread:
+                self._threading += 1
+                self._pop += 1
                 name = self._download_queue.get()
                 threading.Thread(target=self._download, args=(name,)).start()
-                self._threading += 1
         self._worker_running = False
 
     def _download(self, name):
         try:
-            print(f'Downloading {name}...\n', end='')
+            print(f'Downloading {name}...({self._pop + 1}/{self._length})\n', end='')
             res = requests.get(self._base + name, headers=self._header)
             res.raise_for_status()
         except Exception as ex:
@@ -43,5 +45,5 @@ class mtd:
             threading.Thread(target=self._worker).start()
 
     def join(self):
-        while self._finished < self._length:
+        while self._threading > 0 and self._download_queue.qsize() > 0:
             pass
