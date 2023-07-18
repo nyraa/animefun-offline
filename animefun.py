@@ -122,7 +122,7 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
 
         # parse chunklist.m3u8
         chunklist = chunklist_res.text.split('\n')
-        mtd_worker = multiple_thread_downloading.mtd(header, chunks_base, chunklist_res.text.count('.ts'), tmp_dir)
+        mtd_worker = multiple_thread_downloading.mtd(header, chunks_base, tmp_dir)
 
         for k in range(len(chunklist)):
             line = chunklist[k]

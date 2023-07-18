@@ -4,12 +4,12 @@ import threading
 import os
 
 class mtd:
-    def __init__(self, header, base, length, store_base, max_thread=10):
+    def __init__(self, header, base, store_base, max_thread=10):
         self._download_queue = queue.Queue()
         self._worker_running = False
         self._header = header
         self._base = base
-        self._length = length
+        self._length = 0
         self._store_base = store_base
         self._threading = 0
         self._pop = 0
@@ -27,7 +27,7 @@ class mtd:
 
     def _download(self, name):
         try:
-            print(f'Downloading {name}...({self._pop + 1}/{self._length})\n', end='')
+            print(f'Downloading {name}...({self._pop}/{self._length})\n', end='')
             res = requests.get(self._base + name, headers=self._header)
             res.raise_for_status()
         except Exception as ex:
@@ -40,6 +40,7 @@ class mtd:
 
     def push(self, name):
         self._download_queue.put(name)
+        self._length += 1
         if not self._worker_running:
             self._worker_running = True
             threading.Thread(target=self._worker).start()
