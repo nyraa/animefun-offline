@@ -142,7 +142,8 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
         os.system(f'ffmpeg -allowed_extensions ALL -i {os.path.join(tmp_dir, chunklist_filename)} -c copy {os.path.join(ep_basedir, filename_base)}.mp4')
 
         # remove tmp
-        shutil.rmtree(tmp_dir)
+        if not keep_tmp:
+            shutil.rmtree(tmp_dir)
     elif method == 'ffmpeg':
         # linux only
         pass
@@ -195,5 +196,3 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
                 pass
         big_ts.close()
                 
-
-
