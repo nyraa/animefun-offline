@@ -4,8 +4,7 @@ import threading
 import os
 
 class mtd:
-    max_thread = 10
-    def __init__(self, header, base, length, store_base):
+    def __init__(self, header, base, length, store_base, max_thread=10):
         self._download_queue = queue.Queue()
         self._worker_running = False
         self._header = header
@@ -14,6 +13,7 @@ class mtd:
         self._store_base = store_base
         self._threading = 0
         self._finished = 0
+        self.max_thread = max_thread
 
     def _worker(self):
         while self._download_queue.qsize() > 0:
