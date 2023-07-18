@@ -26,12 +26,12 @@ except:
     print('cookies.txt not found')
 
 
-def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', group_dir_name: str='.', keep_tmp: bool=False):
+def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', group_dir_name: str='.', ep_dir_name: str=None, keep_tmp: bool=False):
     if not method in ['mtd', 'ffmpeg', 'aes128']:
         raise Exception('method must be one of mtd, ffmpeg, aes128')
     
     if ep_dir_name is None:
-        ep_dir_name = sn
+        ep_dir_name = '{sn}_{resolution}'
 
     # get device id
     global deviceid
@@ -95,13 +95,13 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
         resolution = int(input('select a resolution: '))
 
     # get resolution number for folder name(format ex: 1080x1920)
-    resolution_number = resolutions_metadata[resolution]['info'].rsplit('=', 1)[1]
+    resolution_name = resolutions_metadata[resolution]['info'].rsplit('=', 1)[1]
+
+    filename_base = ep_dir_name.format(sn=sn, resolution=resolution_name)
 
     # prepare work directory
-    ep_basedir = os.path.join(download_dir_name, group_dir_name, ep_dir_name)
+    ep_basedir = os.path.join(download_dir_name, group_dir_name, filename_base)
     os.makedirs(ep_basedir, exist_ok=True)
-
-    filename_base = f'{sn}_{resolution_number}'
 
     if method == 'mtd':
         tmp_dir = os.path.join(ep_basedir, 'tmp')
@@ -111,7 +111,7 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
         chunklist_res = requests.get(meta_base + resolutions_metadata[resolution]['url'], headers=header)
 
         # save chunklist to disk
-        chunklist_filename = filename_base + '.m3u8'
+        chunklist_filename = os.path.basename(resolutions_metadata[resolution]['url'])
         with open(os.path.join(tmp_dir, chunklist_filename), 'wb') as chunklist_file:
             for chunk in chunklist_res:
                 chunklist_file.write(chunk)

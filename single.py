@@ -14,4 +14,4 @@ if __name__ == '__main__':
     else:
         resolution = None
     metadata = acgDetail(sn=sn, parse_metadata=True)
-    download_sn(sn, resolution=resolution if resolution is not None else None, group_dir_name=metadata.name, method='mtd')
+    download_sn(sn, resolution=resolution if resolution is not None else None, group_dir_name=metadata.name, ep_dir_name=f"{metadata.ep}_{{sn}}_{{resolution}}", method='mtd')
