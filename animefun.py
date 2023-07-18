@@ -24,17 +24,14 @@ try:
 except:
     print('cookies.txt not found')
 
-# read sn from argv or stdin
-if len(sys.argv) > 1:
-    sn = sys.argv[1]
-    print('sn: %s' % sn)
-else:
-    sn = input('sn: ')
 
-def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', ch_dir_name: str='.', ep_dir_name: str=sn, keep_tmp: bool=False):
+def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str='mtd', download_dir_name: str='Downloads', group_dir_name: str='.', keep_tmp: bool=False):
     if not method in ['mtd', 'ffmpeg', 'aes128']:
         raise Exception('method must be one of mtd, ffmpeg, aes128')
-    pass
+    
+    if ep_dir_name is None:
+        ep_dir_name = sn
+
     # get device id
     global deviceid
     deviceid_res = session.get(f"https://ani.gamer.com.tw/ajax/getdeviceid.php{'?id=' + deviceid if deviceid is not None else ''}")
@@ -100,7 +97,7 @@ def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_nam
     resolution_number = resolutions_metadata[resolution]['info'].rsplit('=', 1)[1]
 
     # prepare work directory
-    ep_basedir = os.path.join(download_dir_name, ch_dir_name, ep_dir_name)
+    ep_basedir = os.path.join(download_dir_name, group_dir_name, ep_dir_name)
     os.makedirs(ep_basedir, exist_ok=True)
 
     filename_base = f'{sn}_{resolution_number}'
@@ -142,8 +139,68 @@ def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_nam
         # call ffmpeg to combine all ts
         # os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
         os.system(f'ffmpeg -allowed_extensions ALL -i {os.path.join(tmp_dir, chunklist_filename)} -c copy {os.path.join(ep_basedir, filename_base)}.mp4')
+    
+    elif method == 'ffmpeg':
+        # linux only
+        pass
+
+    elif method == 'aes128':
+        from Crypto.Cipher import AES
+        import binascii
+
+        big_ts = open(os.path.join(ep_basedir, f"{filename_base}.mp4"), 'wb')
+        
+        # base for the chunks
+        chunks_base = f"{meta_base}{os.path.dirname(resolutions_metadata[resolution]['url'])}/"
+
+        # get chunklist m3u8
+        chunklist_res = requests.get(meta_base + resolutions_metadata[resolution]['url'], headers=header)
+        chunklist = chunklist_res.text.split('\n')
+
+        length = chunklist_res.text.count('.ts')
+
+        iv = None
+        for k in range(len(chunklist)):
+            line = chunklist[k]
+            if line.startswith('#EXT-X-KEY'):
+                groups = re.match('.*METHOD=AES-128,URI="([^"]+)".*?(?:,IV=([^,\s]+))?', line).groups()
+                key_name = groups[0]
+                key_res = requests.get(chunks_base + key_name, headers=header)
+                key = key_res.content
+
+                if groups[1] is not None:
+                    iv = binascii.unhexlify(groups[1])
+            
+            elif line.startswith('#EXT-X-MEDIA-SEQUENCE'):
+                seq = int(line.split(':')[1])
+            
+            elif line.startswith('#EXTINF'):
+                ts_name = chunklist[k + 1]
+
+                print(f"Downloading {ts_name}...({seq + 1}/{length})")
+
+                ts_res = requests.get(chunks_base + ts_name, headers=header)
+                ts = ts_res.content
+
+                if iv is None:
+                    chiper = AES.new(key, AES.MODE_CBC, IV=seq.to_bytes(16, 'big'))
+                else:
+                    chiper = AES.new(key, AES.MODE_CBC, IV=iv)
+                
+                big_ts.write(chiper.decrypt(ts))
+                seq += 1
+                pass
+        big_ts.close()
+                
+
 
 
 if __name__ == '__main__':
+    # read sn from argv or stdin
+    if len(sys.argv) > 1:
+        sn = sys.argv[1]
+        print('sn: %s' % sn)
+    else:
+        sn = input('sn: ')
     metadata = acgDetail(sn=sn, parse_metadata=True)
-    download_sn(sn, resolution=None, download_dir_name=metadata.name)
+    download_sn(sn, group_dir_name=metadata.name, method='aes128')
