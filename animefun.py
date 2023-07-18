@@ -197,13 +197,3 @@ def download_sn(sn: str, ep_dir_name: str=None, resolution: int=-1, method: str=
                 
 
 
-
-if __name__ == '__main__':
-    # read sn from argv or stdin
-    if len(sys.argv) > 1:
-        sn = sys.argv[1]
-        print('sn: %s' % sn)
-    else:
-        sn = input('sn: ')
-    metadata = acgDetail(sn=sn, parse_metadata=True)
-    download_sn(sn, group_dir_name=metadata.name, method='aes128')
