@@ -4,42 +4,42 @@ import threading
 
 class mtd:
     max_thread = 10
-    __threading = 0
-    __finished = 0
     def __init__(self, header, base, length):
-        self.__download_queue = queue.Queue()
-        self.__worker_running = False
-        self.__header = header
-        self.__base = base
-        self.__length = length
+        self._download_queue = queue.Queue()
+        self._worker_running = False
+        self._header = header
+        self._base = base
+        self._length = length
+        self._threading = 0
+        self._finished = 0
 
-    def __worker(self):
-        while self.__download_queue.qsize() > 0:
-            if self.__threading < self.max_thread:
-                name = self.__download_queue.get()
-                threading.Thread(target=self.__download, args=(name,)).start()
-                self.__threading += 1
-        self.__worker_running = False
+    def _worker(self):
+        while self._download_queue.qsize() > 0:
+            if self._threading < self.max_thread:
+                name = self._download_queue.get()
+                threading.Thread(target=self._download, args=(name,)).start()
+                self._threading += 1
+        self._worker_running = False
 
-    def __download(self, name):
+    def _download(self, name):
         try:
             print(f'Downloading {name}...\n', end='')
-            res = requests.get(self.__base + name, headers=self.__header)
+            res = requests.get(self._base + name, headers=self._header)
             res.raise_for_status()
         except Exception as ex:
             print(f'Error: {name}: {ex}')
             return
         with open(name, 'wb') as file:
             file.write(res.content)
-        self.__threading -= 1
-        self.__finished += 1
+        self._threading -= 1
+        self._finished += 1
 
     def push(self, name):
-        self.__download_queue.put(name)
-        if not self.__worker_running:
-            self.__worker_running = True
-            threading.Thread(target=self.__worker).start()
+        self._download_queue.put(name)
+        if not self._worker_running:
+            self._worker_running = True
+            threading.Thread(target=self._worker).start()
 
     def join(self):
-        while self.__finished < self.__length:
+        while self._finished < self._length:
             pass
