@@ -51,5 +51,5 @@ class mtd:
             threading.Thread(target=self._worker).start()
 
     def join(self):
-        while self._threading > 0 and self._download_queue.qsize() > 0:
+        while self._threading > 0 or self._download_queue.qsize() > 0:
             pass
