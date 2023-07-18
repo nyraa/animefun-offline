@@ -139,7 +139,7 @@ def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_nam
 
         # call ffmpeg to combine all ts
         # os.system('ffmpeg -allowed_extensions ALL -i %s -c copy %s.mp4' % (chunklist_filename, folder_name))
-        os.system(f'ffmpeg -allowed_extensions ALL -i {os.path.join(tmp_dir, chunklist_filename)} -c copy {os.path.join(ep_basedir, filename_base)}.mp4')
+        os.system(f'ffmpeg -allowed_extensions ALL -i {os.path.join(tmp_dir, chunklist_filename)} -c copy {os.path.join(ep_basedir, filename_base)}.mp4 -y')
 
         # remove tmp
         if not keep_tmp:
