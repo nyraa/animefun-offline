@@ -43,6 +43,9 @@ def download_sn(sn: str, resolution: int=-1, method: str='mtd', download_dir_nam
     res = session.get(f"https://ani.gamer.com.tw/ajax/token.php?sn={sn}&device={deviceid}")
     res.raise_for_status()
     token = res.json()
+    if 'error' in token:
+        print(token)
+        return
 
     if token['time'] == 0:
         # start ad
